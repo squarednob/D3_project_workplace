@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+</head>
+<body>
+	
+	
+	<script src="http://d3js.org/d3.v3.min.js"></script>
+	<script src="http://code.jquery.com/jquery-latest.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+	
+	<script>
+		var width = 960,
+		height = 700;
+
+		var svg = d3.select("body").append("svg")
+		.attr("width", width)
+		.attr("height", height)
+		.attr("transform","translate(" + width/2 + "," + height/2 + ")"); //中心に(0,0)を移動。
+		
+		var radius = height/3;
+		
+		// 0~360にスケールすることで、円周に合わせる。
+		var r = d3.scale.linear()
+				.range([0,360]);
+		
+		var x = d3.scale.linear()
+		    .range([0, width/2]);
+
+		var y = d3.scale.linear()
+		    .range([radius, 0]); // radiusと0を逆にすることで、外側を０として内側方向にpathが伸びる。
+				
+		var category20 = d3.scale.category20();
+		var category20b = d3.scale.category20b();
+		
+		// gを後で回転させるので、xは常に0。
+		var line = d3.svg.line()
+		.x(0)
+		.y(function(d) { return d; });
+		
+		d3.json("電力会社幹部の国民政治協会への政治献金_関連企業除外_timeline.json", function(data){
+			console.log(data);
+
+			var timeline = data["timeline"];
+			
+			var list_length = timeline[2007].length; 
+			
+		  x.domain([0,list_length]);
+			y.domain([0,100]);
+			//　名目値でdomainを作るためにリストの長さを上限にする。
+			r.domain([0,list_length]);
+			
+			
+			var gs = svg.selectAll("g")
+			.data(timeline[2007]) // Use pie to get radian adjuted whole of the data.
+			.enter()
+			.append("g").attr("transform",function(d,i){ return "rotate(" + r(i) + ")"; });
+			//r(i)でインデックスごとに回転スケールすることで、名目値を円周にマッピングできる。
+			
+			gs.append("circle")
+			.attr("cx", 0)
+			.attr("cy", function(d){ return y(d["献金(万円)"]); }) //gで回転しているのでy方向に動くだけでいい。
+			.attr("r", 8)
+			.attr("fill", function(d){ return category20(d["役職"]); })
+			.attr("stroke","black")
+			.attr("opacity",0.8);
+			
+			
+			gs.append("text")
+			.attr("x",0)
+			//.attr("y", height/2)
+			//.attr("y", function(d){ return y(d["献金(万円)"]); })
+			.text(function(d){ return d["氏名"]; })
+			.attr("font-size","10px")
+			.attr("fill", "black")
+			.attr("opacity",0.9)
+			.attr("transform",function(d,i){
+				// 円の右と左でテキストの方向を変える。
+				if(i >= list_length/2) {
+					return "rotate(270 " + 0 + "," + radius +")"
+				} else{
+					
+					return "rotate(-90 " + 0 + "," + radius +")"
+				} 
+			});
+			// 回転角度の90度にテキストを向けるには、rotate(角度, x,y)でtranslateも同時に設定しないと回転が反映されない。
+			
+				
+			gs.append("rect")
+			.attr("x",0)
+			.attr("y", 0)
+			.attr("height",height)
+			.attr("width",10)
+			.attr("fill", function(d){ return category20b(d["電力会社"])})
+			.attr("opacity",0.2);
+			
+
+
+		})
+
+	</script>
+
+
+</body>
+</html>

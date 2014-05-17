@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<body>
+
+  <script src="http://d3js.org/d3.v3.min.js"></script>
+  <script src="http://code.jquery.com/jquery-latest.min.js"></script>
+  <script>
+
+    var width = 960,
+     height = 700;
+
+    var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+	.append("g")
+	.attr("transform","translate(200,200)");
+
+
+	d3.csv("pl2012.csv", function(data){
+		
+		lines(data,["売上高","売上原価","売上総利益","当期純利益"],"業種");
+	})
+        
+		
+	// Each column make line for x=index, y=value, in the same x axis.
+	function lines(data,columns,nominal_column="", interpolate="basic"){
+		
+		// Change color along with columns.
+		var color = d3.scale.category10();
+		
+		// Make unique ordinal scale.
+		var unique_value = getUniqueValues(data,nominal_column);
+		var ord = d3.scale.ordinal().domain(unique_value).rangeBands([10,width-10]);
+		
+		// means and variances of ordinal ranges.
+		var random_ord = randomOrd(ord);
+		console.log(random_ord);
+
+		
+		var line = d3.svg.line()
+					.x(function(d,i){ console.log(d); })//fix it
+					.y(function(d,i){ return parseInt(d);})
+					.interpolate(interpolate);
+		
+		// Make line chart from each column.
+		d3.map(columns).forEach(function(i,col){
+
+			// Value list of a column.			
+			var data_list = [];
+			d3.map(data).forEach(function(i,d){ data_list.push(d[col]); });
+			
+			svg.append("path")
+			.attr("d",line(data_list))
+			.attr("fill","none")
+			.attr("stroke-width",1)
+			.attr("opacity",0.4) //opacity makes duplication more visible.
+			.attr("stroke",color(col));
+		})
+	}
+	
+	function getUniqueValues(data,column){
+		var value_list = [];
+		d3.map(data).forEach(function(i,d){
+			value_list.push(d[column]);
+		})
+		return d3.set(value_list).values();
+	}
+	
+	// Make Mean and variance for random within ord-range.
+	function randomOrd(ord){
+		var domain = ord.domain();
+		var range = ord.range();
+		range.unshift(0);
+		range.push(width-10);
+
+		var domain_random_norm = {};
+		
+		domain.forEach(function(d,i){
+			var variance = range[i+1] - range[i];
+			var mean = (range[i+1] + range[i])/2;
+
+			domain_random_norm[d] = [mean,variance];
+		})
+		return domain_random_norm;
+	}
+	
+  </script>

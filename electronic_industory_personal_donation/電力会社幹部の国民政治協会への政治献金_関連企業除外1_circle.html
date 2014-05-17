@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+</head>
+<body>
+	
+	
+	<script src="http://d3js.org/d3.v3.min.js"></script>
+	<script src="http://code.jquery.com/jquery-latest.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+	
+	<script>
+		var width = 960,
+		height = 700;
+
+		var svg = d3.select("body").append("svg")
+		.attr("width", width)
+		.attr("height", height);
+		
+		var x = d3.scale.linear()
+		    .range([0, width]);
+
+		var y = d3.scale.linear()
+		    .range([height, 0]);
+				
+		var category20 = d3.scale.category20();
+		var category20b = d3.scale.category20b();
+		
+		// x is always 0, due to rotation of g later on.
+		var line = d3.svg.line()
+		.x(0)
+		.y(function(d) { return d; });
+			
+		// pie layout returns angle adjusting data's size and whole number.
+		// Returned object contains {data:a, value:b, startAngle:c, endAngle:d} of each.
+		// value gets list of data.
+	  var pie = d3.layout.pie()
+	  .value(function(d) { return d;})
+		.sort(d3.ascending); //sort(d3.accending) makes radian in order of value.
+		
+		d3.json("電力会社幹部の国民政治協会への政治献金_関連企業除外_timeline.json", function(data){
+			console.log(data);
+
+			var timeline = data["timeline"];
+
+			
+		  x.domain([0,timeline[2007].length]);
+		  //y.domain(d3.extent(timeline, function(d) { return d; }));
+			y.domain([0,50]);
+			
+			var gs = svg.selectAll("g")
+			.data(timeline[2007]) // Use pie to get radian adjuted whole of the data.
+			.enter()
+			.append("g")
+			
+			gs.append("circle")
+			.attr("cx", function(d,i){ return x(i); })
+			.attr("cy", function(d){ return y(d["献金(万円)"]); })
+			.attr("r", 10)
+			.attr("fill", function(d){ return category20(d["役職"]); });
+			
+			gs.append("text")
+			.attr("x", function(d,i){ return x(i); })
+			.attr("y", function(d){ return y(d["献金(万円)"]); })
+			.text(function(d){ return d["電力会社"]+d["氏名"]; })
+			.attr("font-size","10px")
+			.attr("fill", "black");
+					
+			gs.append("rect")
+			.attr("x", function(d,i){ return x(i); })
+			.attr("y", 0)
+			.attr("height",height)
+			.attr("width",10)
+			.attr("fill", function(d){ return category20b(d["電力会社"])})
+			.attr("opacity",0.2);
+			
+			/*
+			// Rotate g. convert pie's radian into degree in angle.
+			.attr("transform",function(d){ console.log(d.startAngle); return "rotate("+d.startAngle*(180/Math.PI) +")";})
+			.append("path")
+					// line([a,b]) shuuld take list of a(x1,y1) and b(x1,y1).
+					.attr("d",function(d){ return line([0,parseInt(100)]);})
+					.attr("stroke","black")
+					.attr("fill","none")
+			*/
+
+		})
+
+	</script>
+
+
+</body>
+</html>

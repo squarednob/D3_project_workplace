@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+</head>
+<body>
+	
+	
+	<script src="http://d3js.org/d3.v3.min.js"></script>
+	<script src="http://code.jquery.com/jquery-latest.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.6.0/underscore-min.js"></script>
+	
+	<script>
+		var width = 960,
+		height = 700;
+
+		var svg = d3.select("body").append("svg")
+		.attr("width", width)
+		.attr("height", height);
+		
+		// 0~360にスケールすることで、円周に合わせる。
+		var radius = height/3;
+		var timeline = [2007,2008,2009];
+		var timeline_length = timeline.length;
+		var tick_count = 1;
+		var duration = 3000;
+		
+		var r = d3.scale.linear()
+				.range([0,360]);
+		
+		var x = d3.scale.linear()
+		    .range([0, width/2]);
+
+		var y = d3.scale.linear()
+		    .range([radius, 0]);
+				
+		var category20 = d3.scale.category20();
+		var category10 = d3.scale.category10();
+		
+		var line = d3.svg.line()
+		.x(0)
+		.y(function(d) { return y(d); });
+			
+		
+		d3.json("電力会社幹部の国民政治協会への政治献金_関連企業と執行役など除外_person.json", function(data){
+
+			var persons = data["献金者"];		
+			var list_length = persons.length; 
+			
+		  x.domain([0,list_length]);
+			y.domain([0,40]);
+			//　名目値でdomainを作るためにリストの長さを上限にする。
+			r.domain([0,list_length]);
+			
+			
+			var gs = svg.attr("transform","translate(" + width/2 + "," + height/2 + ")")
+		.selectAll("g")
+			.data(persons) // Use pie to get radian adjuted whole of the data.
+			.enter()
+			.append("g").attr("transform",function(d,i){ return "rotate(" + r(i) + ")"; });
+			//r(i)でインデックスごとに回転スケールすることで、名目値を円周にマッピングできる。
+							
+			var line_path = gs.append("path")
+			.attr("d",function(d){ return line([0,parseInt(d[2007]["献金(万円)"])]);})
+			.attr("stroke", function(d){ return category20(d[2007]["役職"]); })
+			.attr("stroke-width",5)
+			.attr("stroke-linecap","round")
+			.attr("opacity",0.8);
+				
+			var text = gs.append("text")
+			.attr("x",0)
+			//.attr("y", height/2)
+			//.attr("y", function(d){ return y(d["献金(万円)"]); })
+			.text(function(d){ return d["氏名"]; })
+			.attr("font-size","10px")
+			.attr("fill", "black")
+			.attr("opacity",0.9)
+			.attr("transform",function(d,i){
+				// 円の右と左でテキストの方向を変える。
+				if(i >= list_length/2) {
+					return "rotate(270 " + 0 + "," + radius +")"
+				} else{
+				
+					return "rotate(-90 " + 0 + "," + radius +")"
+				} 
+			});
+			// 回転角度の90度にテキストを向けるには、rotate(角度, x,y)でtranslateも同時に設定しないと回転が反映されない。
+			
+			var rect = gs.append("rect")
+			.attr("x",0)
+			.attr("y", 0)
+			.attr("height",height)
+			.attr("width",10)
+			.attr("fill", function(d){ return category10(d["電力会社"])})
+			.attr("opacity",0.2);
+			
+			// tick animation ---------------- 
+			setInterval(function(){
+				tick();
+			},duration+1000);
+			
+			function tick(){
+				var year_index = tick_count % timeline_length;
+				var target_year = timeline[year_index];
+				
+				renderChart(target_year);
+				tick_count += 1;
+				//.each("end",tick)
+			};
+			
+			function renderChart(year){
+				
+				line_path.transition()
+				.duration(duration)
+				.attr("d",function(d){ return line([0,parseInt(d[year]["献金(万円)"])]);})
+				.attr("stroke", function(d){ return category20(d[year]["役職"]); })
+				.attr("stroke-width",5)
+				.attr("stroke-linecap","round")
+				.attr("opacity",0.8);
+				
+				/*
+				year_tooltip.transition()
+				.duration(20)
+				.text(year);
+			*/
+			};	
+
+		})
+
+	</script>
+
+
+</body>
+</html>

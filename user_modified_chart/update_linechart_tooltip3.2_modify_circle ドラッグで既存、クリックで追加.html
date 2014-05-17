@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+
+.point {
+  fill: black;
+  stroke: #fff;
+}
+
+.point.selected {
+  fill: red;
+  fill-opacity: 1;
+  stroke: brown;
+}
+
+.brush .extent {
+  stroke: gray;
+	fill: orange;
+  fill-opacity: 0.5;
+  shape-rendering: crispEdges;
+}
+
+.show_tooltip_box {
+	opacity: 1.0;
+	fill: blue;
+	font-size: 200%;
+}
+
+
+</style>
+<body>
+	
+<form>
+	<button id="input" type="button">click</button>
+</form>
+	
+<script src="http://d3js.org/d3.v3.js"></script>
+<script>
+
+
+
+
+var margin = {top: 20, right: 20, bottom: 30, left: 50},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+// scale and axis and make svg. ----------------------------------
+var x = d3.scale.linear()
+    .range([0, width]);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left");
+
+
+var line = d3.svg.line()
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.close); })
+		.interpolate("monotone");
+
+var drag = d3.behavior.drag()
+    .origin(function(d) { return d; })
+    .on("drag", dragmove);
+		
+function dragmove(d) {
+	// 他のクリックイベントなどを停止。
+	d3.event.sourceEvent.stopPropagation();
+
+	console.log("a");
+  d3.select(this)
+      .attr("cx", d.x = Math.max(radius, Math.min(width - radius, d3.event.x)))
+      .attr("cy", d.y = Math.max(radius, Math.min(height - radius, d3.event.y)));
+			console.log(d3.select(this).data());
+}		
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+		
+
+// initialize svg elements. ---------------------------------------
+
+	function adjustScale(data){
+	  data.forEach(function(d) {
+	    d.date = +d.date;
+	    d.close = +d.close;
+	  });
+		
+		/* 0から始めないでそのまま最小と最大を軸にする時はextentを使う。
+	 x.domain(d3.extent(data, function(d) { return d.date; }));
+	 y.domain(d3.extent(data, function(d) { return d.close; }));
+	 */
+		
+	 // 軸を0から始めるために0とmaxをdomainにした。
+	 x.domain([0,d3.max(data, function(d){ return d.date; })]);
+	 y.domain([0,d3.max(data, function(d){ return d.close; })]);
+		
+	};
+	
+	function initializeDOM(data){
+		
+	  svg.append("g")
+	      .attr("class", "x_axis")
+	      .attr("transform", "translate(0," + height + ")")
+	      .call(xAxis);
+
+	  svg.append("g")
+	      .attr("class", "y_axis")
+	      .call(yAxis)
+	    .append("text")
+	      .attr("transform", "rotate(-90)")
+	      .attr("y", 6)
+	      .attr("dy", ".71em")
+	      .style("text-anchor", "end")
+	      .text("Price ($)");
+
+	  svg.append("path")
+	      .datum(data)
+	      .attr("class", "line")
+	      .attr("d", line);
+	}
+	
+	function makeTooltip(data){
+		var g_box = svg.selectAll(".point")
+		   	 					 .data(data)
+		  						 .enter()
+									 .append("g").attr("class","g-tooltip_box");
+			
+
+		g_box.append("circle").attr("class","point")
+													.attr("r", 4)
+													.attr("cx", function(d) { return x(d.date); })
+													.attr("cy", function(d) { return y(d.close); })
+													.call(drag); // dragイベント起動。
+
+		var hide_show_box = g_box.append("g").attr("opacity",0.125);
+
+		hide_show_box.append("text").attr("class","text-tooltip")
+								.text(function(d){ return d.close; })
+								.attr("x", function(d){ return x(d.date) + 3; })
+								.attr("y", function(d){ return y(d.close); });
+
+		hide_show_box.append("image").attr("class","image-tooltip")
+								.attr("xlink:href", "http://upload.wikimedia.org/wikipedia/commons/thumb/5/54/Bot%C3%B3n_Me_gusta.svg/200px-Bot%C3%B3n_Me_gusta.svg.png")
+								.attr("width", 45)
+								.attr("height", 45)
+								.attr("x", function(d){ return x(d.date) - 36; })
+								.attr("y", function(d){ return y(d.close) - 25; });
+	}
+
+	function makeBrush(data){
+		// データの最小最大に合わせてbrushを設定する。
+	  var ex = d3.extent(data, function(d) { return d.date; });
+	  var ey = d3.extent(data, function(d) { return d.close; });
+		var defaultExtent = [[ex[1]*(2/5),ey[0]],[ex[1]*(3/5),ey[1]]];
+		
+		var brush = d3.svg.brush()
+		    .x(x)
+		    .y(y)
+		    .extent(defaultExtent)
+		    .on("brush", brushed);
+						
+				svg.append("g")
+				    .attr("class", "brush").call(brush).call(brush.event)
+						.attr("transform", "translate(" + 0 + "," + height + ")");//グラフの下にbrushを移動。
+
+				function brushed() {
+	
+					var selected = d3.select(".extent");
+
+					var sel_x1 = parseInt(selected.attr("x"));
+					var sel_x2 = parseInt(selected.attr("width")) + sel_x1;
+					var sel_y1 = parseInt(selected.attr("y"));
+					var sel_y2 = parseInt(selected.attr("height")) + sel_y1;
+	
+	
+					d3.selectAll(".point").each(function(el){
+
+						var selected_DOM = d3.select(this);
+
+						var selected_cx = parseInt(selected_DOM.attr("cx"));
+						var selected_cy = parseInt(selected_DOM.attr("cy"));
+		
+						if (sel_x2 >= selected_cx &&  selected_cx >= sel_x1){
+							selected_DOM.classed("selected", true);
+							show_tooltip(selected_DOM);
+						} else {			
+							selected_DOM.classed("selected", false);
+							hide_tooltip(selected_DOM);			
+						}
+					});
+
+				}
+						
+				function show_tooltip(DOM){
+					// d3.select()でもリストに囲まれているのでeachを使わないとだめみたい。
+					DOM.each(function(){
+						// d3.select(this.parentNode).select()で、いったん親ノードを選択してから.selectで子を選択する。
+						 d3.select(this.parentNode).select("g").classed("show_tooltip_box",true);
+					 });
+				}
+
+				function hide_tooltip(DOM){
+					DOM.each(function(){
+						 d3.select(this.parentNode).select("g").classed("show_tooltip_box",false);
+					 });
+				}		
+	}
+	
+	function makePointerCanvas(){
+		svg.append("rect").attr("id","canvas")
+				.attr("x",0).attr("y",0).attr("width",width).attr("height",height)
+				.attr("fill","blue").attr("opacity",0.1);
+	}
+	
+	// update -----------------------------------------------
+	function pushNewExtraData(data){
+		var indexed = d3.max(data, function(d) { return d.date; });
+		var random_close = d3.random.normal(10,5);
+		var close_list = [];
+		data.forEach(function(d){
+			close_list.push(d.close);
+		});
+
+		var close_mean = d3.mean(close_list);
+	
+		var new_entry = {date: indexed+1, close:close_mean};
+	
+		data.push(new_entry);
+		console.log(data);
+	}
+	
+	function deleteSelectedPoint(data){
+		var selected_data = d3.selectAll(".selected").data();
+
+		selected_data.forEach(function(d){
+			data.forEach(function(dd){
+				if(d == dd){
+					var idx = data.indexOf(dd);
+					data.splice(idx,1);
+					console.log(dd);
+				}
+			})
+		})
+	}
+		
+	function pushNewCanvasData(data,coord){
+		// 画面のインプットをinvertでデータの範囲に変える。
+		var invert_x = x.invert(coord[0]).toFixed(1); // toFixed(1)で小数点第一位まで四捨五入。
+		var invert_y = y.invert(coord[1]);
+		
+		//var indexed = d3.map(data).size() + 1;
+	
+		var new_entry = {date: invert_x, close:invert_y};
+		
+		// 同じdateならそのレコードは上書き。
+		data.forEach(function(d){
+			if (d.date == new_entry.date){
+				d = new_entry;
+			}
+		})
+		
+		data.push(new_entry);
+		// sortで追加したデータのdateで並べる。
+		data.sort(function(a,b){ return a.date - b.date; });
+	}
+	
+	function updateAxis(data){
+		// appendをselectに変え、クラスを指定するようにする。
+	  svg.select(".x_axis")
+			.transition()
+			.duration(1000)
+	      .attr("transform", "translate(0," + height + ")")
+	      .call(xAxis);
+
+		// y軸のテキストは変えない。
+	  svg.select(".y_axis")
+			.transition()
+			.duration(1000)
+	      .call(yAxis);
+	}
+
+	function makePointer(data,coord){
+		// 本当はgやtooltipと対置する。
+		// 最後に作ったものだけ残すために、最初にすべてのポインタを消しておく。
+		svg.selectAll(".select_dot").remove();
+		svg.append("circle").attr("class","select_dot")
+				.attr("cx",coord[0]).attr("cy",coord[1]).attr("r",7).attr("fill","orange");
+	}
+	
+	function updateEachElements(data){
+		
+		d3.selectAll(".point")
+		.data(data)
+	.transition()
+	.duration(500)
+		.attr("cx", function(d) { return x(d.date); })
+		.attr("cy", function(d) { return y(d.close); });
+				
+		d3.selectAll(".text-tooltip")
+			.data(data)
+		.transition()
+		.duration(500)
+			.text(function(d){ return d.close; })
+			.attr("x", function(d){ return x(d.date) + 3; })
+			.attr("y", function(d){ return y(d.close); });
+					
+		d3.selectAll(".image-tooltip")
+			.data(data)
+		.transition()
+		.duration(500)
+			.attr("x", function(d){ return x(d.date) - 36; })
+			.attr("y", function(d){ return y(d.close) - 25; });
+		
+	}
+
+	// execute -----------------------------------------------
+d3.json("data.json", function(data){
+
+	adjustScale(data);
+	
+	initializeDOM(data);
+	
+	makeTooltip(data);
+
+	makeBrush(data);
+	
+	// mouseイベントを取るためにrectを作る。
+	makePointerCanvas()
+	
+	d3.select("#canvas").on("click", function(){
+		
+		var coord = d3.mouse(this);
+		
+		//　選択範囲に元からあった点を削除。
+		//deleteSelectedPoint(data);
+		// クリックした場所に出るひとつの円を描く。
+		makePointer(data,coord);
+		
+		pushNewCanvasData(data,coord);
+		
+		//スケールのdomainの設定からアップデートする。
+		adjustScale(data);
+	
+		updateAxis(data);
+				
+		// 追加したデータでlineを更新する。
+	  svg.select(".line")
+	      .datum(data)
+			.transition()
+			.duration(500)
+	      .attr("d", line);
+		
+		// 追加したデータの分だけenterで、circleとツールチップを追加する。	
+		// これは最初に作った時と同じ関数を使えばいい。	
+		makeTooltip(data);	
+
+
+		// 既存の要素をdata(data).transition()で更新する ----------------------				
+		updateEachElements(data);
+	})
+
+
+  // クリックイベントでデータ追加。
+  d3.select("#input").on("click", function(){
+
+		// 新しいデータを追加する。
+		pushNewExtraData(data);
+	
+		//スケールのdomainの設定からアップデートする。
+		adjustScale(data);
+	
+		updateAxis(data);
+				
+		// 追加したデータでlineを更新する。
+	  svg.select(".line")
+	      .datum(data)
+			.transition()
+			.duration(500)
+	      .attr("d", line);
+		
+		// 追加したデータの分だけenterで、circleとツールチップを追加する。	
+		// これは最初に作った時と同じ関数を使えばいい。	
+		makeTooltip(data);	
+
+		// 既存の要素をdata(data).transition()で更新する ----------------------				
+		updateEachElements(data);
+	});  
+	
+
+
+});
+
+</script>
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+
+<style>
+
+.overlay {
+  fill: none;
+  pointer-events: all;
+}
+
+</style>
+<body>
+   <script src="http://d3js.org/d3.v2.min.js?2.10.0"></script>
+  <script>
+
+    var width = 960,
+    height = 700;
+
+    var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height)
+     .append("g")
+    .call(d3.behavior.zoom().scaleExtent([1, 108]).on("zoom", zoom));
+
+    svg.append("rect")
+    .attr("class", "overlay")
+    .attr("width", width)
+    .attr("height", height);
+    
+    var xym = d3.geo.albers().origin([134, 25]).translate([350, 745]).parallels([24.6, 43.6]).scale(1980);
+    
+    
+    
+    var path = d3.geo.path().projection(xym);
+
+
+    d3.json("japan.json", function(data) {
+        svg.selectAll("path").data(data.features)
+        .enter().append("path")
+        .attr("d", path)
+        .style("fill", function() { return "#44aaee" })
+        .on("mouseover", function(e){d3.select(this).style("fill", "#5522aa")})
+        .on("mouseout", function(e){d3.select(this).style("fill", "#44aaee")});
+      });
+      
+    d3.csv("boryokudan_list.csv", function(data){
+		console.log(data[0]["Boryokudan"]);
+        var map = svg.on("mouseover", svg.selectAll("image").data(data)
+        .enter().append("image")
+	    .attr("xlink:href", function(d,i){ return renameImage(d.Boryokudan,i); })
+		.attr("width",30)
+		.attr("height",30)
+		.attr({x:d3.random.normal(width/2,200), y:d3.random.normal(width/2,200)})
+		.transition().duration(6000)
+	    .attr("x", function(d){ return xym([d.longitude,d.latitude])[0] -15; })
+	    .attr("y", function(d){ return xym([d.longitude,d.latitude])[1] -15; }));
+    })
+
+	function renameImage(d,i){
+		var num;
+		i += 1;
+		if(i < 10){
+			num = "0" + i.toString();
+		}else{
+			num = i.toString();
+		}
+		return "symbols/" + num + d + ".png";
+	}	
+      
+	function zoom() {
+	  svg.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+	}
+      
+	  </script>

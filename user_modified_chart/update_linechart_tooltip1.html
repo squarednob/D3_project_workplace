@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+body {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.line {
+  fill: none;
+  stroke: steelblue;
+  stroke-width: 1.5px;
+}
+
+.point {
+  fill: black;
+  stroke: #fff;
+}
+
+.point.selected {
+  fill: red;
+  fill-opacity: 1;
+  stroke: brown;
+}
+
+.brush .extent {
+  stroke: #fff;
+  fill-opacity: .125;
+  shape-rendering: crispEdges;
+}
+
+.show_tooltip_box {
+	opacity: 1.0;
+	fill: blue;
+	font-size: 200%;
+}
+
+
+</style>
+<body>
+	
+<form>
+	<button id="input" type="button">click</button>
+</form>
+	
+<script src="http://d3js.org/d3.v3.js"></script>
+<script>
+
+var margin = {top: 20, right: 20, bottom: 30, left: 50},
+    width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+// scale and axis and make svg. ----------------------------------
+var x = d3.scale.linear()
+    .range([0, width]);
+
+var y = d3.scale.linear()
+    .range([height, 0]);
+
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var yAxis = d3.svg.axis()
+    .scale(y)
+    .orient("left");
+
+
+var line = d3.svg.line()
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.close); })
+		.interpolate("linear");
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+		
+
+// initialize svg elements. ---------------------------------------
+
+	function initializeData(data){
+	  data.forEach(function(d) {
+	    d.date = +d.date;
+	    d.close = +d.close;
+	  });
+		
+	  x.domain(d3.extent(data, function(d) { return d.date; }));
+	  y.domain(d3.extent(data, function(d) { return d.close; }));
+		
+	};
+	
+	function initializeDOM(data){
+	  svg.append("g")
+	      .attr("class", "x_axis")
+	      .attr("transform", "translate(0," + height + ")")
+	      .call(xAxis);
+
+	  svg.append("g")
+	      .attr("class", "y_axis")
+	      .call(yAxis)
+	    .append("text")
+	      .attr("transform", "rotate(-90)")
+	      .attr("y", 6)
+	      .attr("dy", ".71em")
+	      .style("text-anchor", "end")
+	      .text("Price ($)");
+
+	  svg.append("path")
+	      .datum(data)
+	      .attr("class", "line")
+	      .attr("d", line);
+	}
+	
+	function makeTooltip(data){
+		var g_box = svg.selectAll(".point")
+		   	 					 .data(data)
+		  						 .enter()
+									 .append("g").attr("class","g-tooltip_box");
+			
+
+		g_box.append("circle").attr("class","point")
+													.attr("r", 4)
+													.attr("cx", function(d) { console.log("aho"); return x(d.date); })
+													.attr("cy", function(d) { return y(d.close); });
+
+		var hide_show_box = g_box.append("g").attr("opacity",0.125);
+
+		hide_show_box.append("text").attr("class","text-tooltip")
+								.text(function(d){ return d.close; })
+								.attr("x", function(d){ return x(d.date) + 3; })
+								.attr("y", function(d){ return y(d.close); });
+
+		hide_show_box.append("image").attr("class","image-tooltip")
+								.attr("xlink:href", "http://upload.wikimedia.org/wikipedia/commons/thumb/5/54/Bot%C3%B3n_Me_gusta.svg/200px-Bot%C3%B3n_Me_gusta.svg.png")
+								.attr("width", 45)
+								.attr("height", 45)
+								.attr("x", function(d){ return x(d.date) - 36; })
+								.attr("y", function(d){ return y(d.close) - 25; });
+	}
+
+
+	function makeBrush(data){
+		var defaultExtent = [[2,0],[3,14]];
+	
+		var brush = d3.svg.brush()
+		    .x(x)
+		    .y(y)
+		    .extent(defaultExtent)
+		    .on("brush", brushed);
+
+
+				svg.append("g")
+				    .attr("class", "brush").call(brush).call(brush.event);
+
+				function brushed() {
+	
+					var selected = d3.select(".extent");
+
+					var sel_x1 = parseInt(selected.attr("x"));
+					var sel_x2 = parseInt(selected.attr("width")) + sel_x1;
+					var sel_y1 = parseInt(selected.attr("y"));
+					var sel_y2 = parseInt(selected.attr("height")) + sel_y1;
+	
+	
+					d3.selectAll(".point").each(function(el){
+
+						var selected_DOM = d3.select(this);
+
+						var selected_cx = parseInt(selected_DOM.attr("cx"));
+						var selected_cy = parseInt(selected_DOM.attr("cy"));
+		
+						if ((sel_x2 >= selected_cx &&  selected_cx >= sel_x1) && (sel_y2 >= selected_cy && selected_cy >= sel_y1)) {
+			
+							selected_DOM.classed("selected", true);
+							// ツールチップボックスを見せる。
+							show_tooltip(selected_DOM);
+
+						} else {
+			
+							selected_DOM.classed("selected", false);
+							// ツールチップボックスを隠す。
+							hide_tooltip(selected_DOM);			
+						}
+			
+					});
+
+				}
+						
+				function show_tooltip(DOM){
+					// d3.select()でもリストに囲まれているのでeachを使わないとだめみたい。
+					DOM.each(function(){
+						// d3.select(this.parentNode).select()で、いったん親ノードを選択してから.selectで子を選択する。
+						 d3.select(this.parentNode).select("g").classed("show_tooltip_box",true);
+					 });
+				}
+
+				function hide_tooltip(DOM){
+					DOM.each(function(){
+						 d3.select(this.parentNode).select("g").classed("show_tooltip_box",false);
+					 });
+				}		
+	}
+	
+	// update -----------------------------------------------
+	function updateData(data){
+		var indexed = d3.map(data).size() + 1;
+		var random_close = d3.random.normal(30,20);
+	
+		var new_entry = {date: indexed, close:random_close()};
+	
+		data.push(new_entry);
+		console.log(data);
+	}
+	
+	function updateAxis(data){
+		// appendをselectに変え、クラスを指定するようにする。
+	  svg.select(".x_axis")
+			.transition()
+			.duration(1000)
+	      .attr("transform", "translate(0," + height + ")")
+	      .call(xAxis);
+
+		// y軸のテキストは変えない。
+	  svg.select(".y_axis")
+			.transition()
+			.duration(1000)
+	      .call(yAxis);
+	}
+
+
+d3.json("data.json", function(data){
+
+	initializeData(data);
+	
+	initializeDOM(data);
+	
+	makeTooltip(data);
+
+	makeBrush(data);
+
+
+  // クリックイベントでデータ追加。
+  d3.select("#input").on("click", updateInput);  
+
+	function updateInput(){
+		// 新しいデータを追加する。
+		updateData(data);
+	
+		//スケールのdomainの設定からアップデートする。
+		initializeData(data);
+	
+		updateAxis(data);
+				
+		// 追加したデータでlineを更新する。
+	  svg.select(".line")
+	      .datum(data)
+			.transition()
+			.duration(500)
+	      .attr("d", line);
+		
+		// 追加したデータの分だけenterで、circleとツールチップを追加する。	
+		// これは最初に作った時と同じ関数を使えばいい。	
+		makeTooltip(data);	
+
+
+		// 既存の要素をdata(data).transition()で更新する ----------------------				
+		d3.selectAll(".point")
+		.data(data)
+	.transition()
+	.duration(500)
+		.attr("cx", function(d) { return x(d.date); })
+		.attr("cy", function(d) { return y(d.close); });
+				
+		d3.selectAll(".text-tooltip")
+			.data(data)
+		.transition()
+		.duration(500)
+			.text(function(d){ return d.close; })
+			.attr("x", function(d){ return x(d.date) + 3; })
+			.attr("y", function(d){ return y(d.close); });
+					
+		d3.selectAll(".image-tooltip")
+			.data(data)
+		.transition()
+		.duration(500)
+			.attr("x", function(d){ return x(d.date) - 36; })
+			.attr("y", function(d){ return y(d.close) - 25; });
+	} 
+
+});
+
+</script>
+</body>
+</html>
